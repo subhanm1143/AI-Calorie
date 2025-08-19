@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calories Burned Predictor</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>🔥 Calories Burned Predictor</h1>
+      <p class="subtitle">Enter your info and estimate calories burned (demo)</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="predict-form" class="card">
+      <h2>Your Details</h2>
+
+      <div class="grid">
+        <label class="field">
+          <span>Age</span>
+          <input id="age" type="number" min="10" max="100" step="1" required placeholder="e.g., 25" />
+        </label>
+
+        <label class="field">
+          <span>Gender</span>
+          <select id="gender" required>
+            <option value="" disabled selected>Select</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Height (cm)</span>
+          <input id="height" type="number" min="120" max="220" step="0.1" required placeholder="e.g., 175" />
+        </label>
+
+        <label class="field">
+          <span>Weight (kg)</span>
+          <input id="weight" type="number" min="30" max="200" step="0.1" required placeholder="e.g., 75" />
+        </label>
+
+        <label class="field">
+          <span>Workout Duration (min)</span>
+          <input id="duration" type="number" min="1" max="240" step="1" required placeholder="e.g., 45" />
+        </label>
+
+        <label class="field">
+          <span>Avg Heart Rate (bpm)</span>
+          <input id="hr" type="number" min="40" max="220" step="1" required placeholder="e.g., 120" />
+        </label>
+
+        <label class="field">
+          <span>Body Temp (°C)</span>
+          <input id="temp" type="number" min="30" max="45" step="0.1" required placeholder="e.g., 37.0" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="submit-btn" type="submit">Predict</button>
+        <button id="reset-btn" type="button" class="secondary">Reset</button>
+      </div>
+
+      <div id="status" role="status" aria-live="polite"></div>
+      <div id="result" class="result" hidden>
+        <div class="result-value" id="result-value">—</div>
+        <div class="result-note">Educational demo only — not medical advice.</div>
+      </div>
+    </form>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>© 2025 — Built with HTML/CSS/JS • Hosted on Firebase</small>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
