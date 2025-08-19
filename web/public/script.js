@@ -1,11 +1,21 @@
-// Toggle this to true to test UI without the API live.
+// =============================
+// Calorie Predictor — script.js
+// =============================
+
+// 1) Toggle this to true to test UI without the API live.
 const MOCK = false;
 
-// If you deployed Cloud Run in a different region/name and didn't add a Hosting rewrite,
-// you can temporarily point directly to it here (CORS must allow your domain).
-// Otherwise, keep it as relative /api/predict so Firebase Hosting rewrites it.
-const PREDICT_URL = "/api/predict";
+// 2) API endpoints
+const PROD_API = "https://ai-calorie.onrender.com/predict"; // <-- your Render URL
+const DEV_API  = "http://127.0.0.1:8080/predict";
 
+// Auto-pick based on where the page is running
+const PREDICT_URL =
+  location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? DEV_API
+    : PROD_API;
+
+// ---- DOM refs
 const form = document.getElementById("predict-form");
 const statusEl = document.getElementById("status");
 const resultBox = document.getElementById("result");
@@ -13,6 +23,7 @@ const resultValue = document.getElementById("result-value");
 const resetBtn = document.getElementById("reset-btn");
 const submitBtn = document.getElementById("submit-btn");
 
+// ---- helpers
 function getNumber(id){ return Number(document.getElementById(id).value); }
 function getText(id){ return document.getElementById(id).value; }
 
@@ -41,13 +52,24 @@ function setBusy(busy) {
 }
 
 function formatCalories(x) {
-  // simple formatting — round to 0.1
   return `${x.toFixed(1)} kcal`;
 }
 
+// Fetch with timeout (ms)
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// Call API with cold-start retry for Render free tier
 async function callApi(payload) {
   if (MOCK) {
-    // quick fake latency + value for demoing the UI
     await new Promise(r => setTimeout(r, 600));
     const base = 0.05 * payload.Weight * payload.Duration;
     const hrBoost = (payload.Heart_Rate - 100) * 0.8;
@@ -55,18 +77,35 @@ async function callApi(payload) {
     return { calories: est };
   }
 
-  const res = await fetch(PREDICT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${res.status}: ${text}`);
+  // try once; if timeout or 502/503, retry after short delay
+  const attempt = async () => {
+    const res = await fetchWithTimeout(PREDICT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }, 20000); // 20s to allow for cold start
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`API ${res.status}: ${text || res.statusText}`);
+    }
+    return res.json();
+  };
+
+  try {
+    return await attempt();
+  } catch (err) {
+    // Retry once on likely cold-start conditions
+    const msg = String(err.message || err);
+    if (msg.includes("The user aborted a request.") || /(?:502|503|504)/.test(msg)) {
+      statusEl.textContent = "Warming up the server… retrying…";
+      await new Promise(r => setTimeout(r, 1500));
+      return await attempt();
+    }
+    throw err;
   }
-  return res.json();
 }
 
+// ---- events
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   resultBox.hidden = true;
@@ -77,17 +116,17 @@ form.addEventListener("submit", async (e) => {
 
   const payload = {
     Age: getNumber("age"),
-    Gender: getText("gender"),
+    Gender: getText("gender"),      // API accepts "male"/"female" or 0/1
     Height: getNumber("height"),
-    Weight: getNumber("weight"),
-    Duration: getNumber("duration"),
+    Weight: getNumber("weight"),    // accepted by API but ignored by model
+    Duration: getNumber("duration"),// accepted by API but ignored by model
     Heart_Rate: getNumber("hr"),
     Body_Temp: getNumber("temp")
   };
 
   try {
     setBusy(true);
-    statusEl.textContent = "Sending…";
+    statusEl.textContent = `Sending to ${PREDICT_URL} …`;
     const data = await callApi(payload);
     resultValue.textContent = `Estimated calories: ${formatCalories(Number(data.calories))}`;
     resultBox.hidden = false;
